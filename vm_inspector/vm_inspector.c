@@ -18,6 +18,7 @@ int main(int argc, char **argv)
 	int ret;
 	int fd = -1;
 	void *mmap_addr = NULL;
+	void *pgd_addr = NULL;
 	char unique_file_name[MAX_FILE_SIZE] = "";
 
 	snprintf(unique_file_name, MAX_FILE_SIZE, "%s.%d", MMAP_FILE_BASE,
@@ -37,8 +38,16 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	ret = syscall(syscall_no_expose_page_table, -1, 0, mmap_addr);
-	printf("Ret: %d addr = %u\n", ret, (unsigned int)mmap_addr);
+	pgd_addr = malloc(MMAP_SIZE*4);
+
+	if (pgd_addr == NULL) {
+		printf("error in allocating memory\n");
+		return -1;
+	}
+
+	ret = syscall(syscall_no_expose_page_table, -1, pgd_addr, mmap_addr);
+	printf("Ret: %d mmap_addr = %u, pgd_addr = %u\n",
+			ret, (unsigned int)mmap_addr, (unsigned int)pgd_addr);
 
 	return 0;
 }

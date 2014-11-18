@@ -18,6 +18,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	pud_t *pud;
 	pmd_t *pmd;
 	pte_t pte, *ptep;
+	pgd_t *fake_pgd_kern = NULL;
 
 	pteval_t pfn;
 	//pfn_t pfn;
@@ -35,6 +36,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		return -EINVAL;
 	}
 
+	fake_pgd_kern = kcalloc(4, PAGE_SIZE, GFP_KERNEL);
+	if (fake_pgd_kern == NULL) {
+		return -ENOMEM;
+	}
 	//TODO access_ok for addr
 	read_lock(&tasklist_lock);
 	if (pid == -1)
@@ -56,6 +61,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	vma->vm_flags |= VM_DONTEXPAND;
 	if (vma == NULL) {
 		pr_err("expose_page_table: vma is NULL\n");
+		kfree(fake_pgd_kern);
 		return -EFAULT;
 	}
 
@@ -101,5 +107,13 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 						 long size, pgprot_t prot)
 	*/
 
-	return 378;
+	if (copy_to_user((void *)fake_pgd, fake_pgd_kern,
+				PAGE_SIZE*4)) {
+		pr_err("expose_page_table: copy_to_user");
+		pr_err(" failed to copy fake_pgd\n");
+		kfree(fake_pgd_kern);
+		return -EFAULT;
+	}
+
+	return 0;
 }
