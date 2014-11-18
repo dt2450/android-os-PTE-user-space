@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	mmap_addr = mmap(0, MMAP_SIZE, PROT_READ, MAP_PRIVATE, fd, 0);
+	mmap_addr = mmap(0, MMAP_SIZE*2, PROT_READ, MAP_PRIVATE, fd, 0);
 
 	if (mmap_addr == MAP_FAILED) {
 		printf("mmap failed with error: %s\n", strerror(errno));
