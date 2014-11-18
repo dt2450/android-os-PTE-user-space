@@ -4,6 +4,7 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <asm-generic/mman-common.h>
+#include <asm/pgtable.h>
 #include <linux/mm.h>
 
 SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
@@ -11,11 +12,18 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		unsigned long, addr)
 {
 	struct task_struct *task;
+	struct mm_struct *mm;
 	struct vm_area_struct *vma;
 	pgd_t *pgd;
-	pgd_t *pgd_base;
-	pte_t pte;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t pte, *ptep;
+
 	pteval_t pfn;
+	//pfn_t pfn;
+
+	pgd_t *pgd_base;
+	spinlock_t *ptl;
 	int ret;
 
 	printk("pid: %d\n", pid);
@@ -30,49 +38,64 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	//TODO access_ok for addr
 	read_lock(&tasklist_lock);
 	if (pid == -1)
-		task = current;
-	else
+		mm = current->mm;
+	else {
 		task = pid_task(find_vpid(pid), PIDTYPE_PID);
+		mm = task->mm;
+	}
+	read_unlock(&tasklist_lock);
 
-	pgd_base = task->mm->pgd;
-	vma = find_vma(task->mm, addr);
+	pr_err("came here 1.1: task->mm->mmap_sem->activity: %d\n",
+			mm->mmap_sem.activity);
+	down_read(&mm->mmap_sem);
+
+	pr_err("came here 1.1: task->mm->mmap_sem->activity: %d\n",
+                        mm->mmap_sem.activity);
+	pgd_base = mm->pgd;
+	vma = find_vma(mm, addr);
 	vma->vm_flags |= VM_DONTEXPAND;
 	if (vma == NULL) {
 		pr_err("expose_page_table: vma is NULL\n");
 		return -EFAULT;
 	}
 
-	pr_err("came here 1: task->mm->mmap_sem->activity: %d\n",
-			task->mm->mmap_sem.activity);
-	down_read(&task->mm->mmap_sem);
-	pr_err("came here 1.1: task->mm->mmap_sem->activity: %d\n",
-			task->mm->mmap_sem.activity);
 	for(pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++) {
-	pr_err("came here 2\n");
-		if (pgd_none_or_clear_bad(pgd))
+		pr_err("came here 2\n");
+		if (pgd_none_or_clear_bad(pgd)) {
+			pr_err("came 2.1\n");
 			continue;
-		pte = pgd_val(*pgd);
-		pr_err("pte: %lu\n", pte);
-		pfn = pte_val(pte);
-		pr_err("pfn: %lu\n", pfn);
-		ret = remap_pfn_range(vma, addr, pfn, 4096, PROT_READ);
-		//for debugging
-		pr_err("expose_page_table: ret val of remap: %d\n", ret);
+		}
+		pud = pud_offset(pgd, 0);
+		if (pud_none_or_clear_bad(pud)) {
+			pr_err("came 2.2\n");
+			continue;
+		}
+		pmd = pmd_offset(pud, 0);
+		if (pmd_none_or_clear_bad(pmd)) {
+			pr_err("came 2.3\n");
+			continue;
+		}
+		ptep = pte_offset_map(pmd, 0);
+		pte = *ptep;
+		if (pte_none(pte)) {
+			pr_err("came 2.4\n");
+			continue;
+		}
+		pfn = pte_pfn(pte);
+		pr_err("came 2.5\n");
+		ret = remap_pfn_range(vma, addr, pfn, 4096, vma->vm_flags);
+		pr_err("came here 3\n");
 		break;
-	pr_err("came here 3\n");
 
 	}
-	pr_err("came here 4: task->mm->mmap_sem->activity: %d\n",
-			task->mm->mmap_sem.activity);
-	up_read(&task->mm->mmap_sem);
-	pr_err("came here 5: task->mm->mmap_sem->activity: %d\n",
-			task->mm->mmap_sem.activity);
+	pr_err("came here 4\n");
+	up_read(&mm->mmap_sem);
+	pr_err("came here 5\n");
 	/*
 	remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 			2263                     unsigned long pfn, unsigned
 						 long size, pgprot_t prot)
 	*/
-	read_unlock(&tasklist_lock);
 
 	return 378;
 }
