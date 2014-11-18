@@ -11,7 +11,8 @@
 #define syscall_no_expose_page_table	378
 #define MMAP_FILE_BASE	"./_mmap"
 #define MAX_FILE_SIZE	16
-#define MMAP_SIZE	4096
+#define PAGE_SIZE	4096
+#define MMAP_SIZE	1536*PAGE_SIZE
 
 int main(int argc, char **argv)
 {
@@ -31,14 +32,14 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	mmap_addr = mmap(0, MMAP_SIZE*2, PROT_READ, MAP_PRIVATE, fd, 0);
+	mmap_addr = mmap(0, MMAP_SIZE*2, PROT_READ, MAP_SHARED, fd, 0);
 
 	if (mmap_addr == MAP_FAILED) {
 		printf("mmap failed with error: %s\n", strerror(errno));
 		return -1;
 	}
 
-	pgd_addr = malloc(MMAP_SIZE*4);
+	pgd_addr = malloc(PAGE_SIZE*4);
 
 	if (pgd_addr == NULL) {
 		printf("error in allocating memory\n");

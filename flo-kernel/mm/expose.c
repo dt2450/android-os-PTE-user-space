@@ -19,9 +19,11 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	pmd_t *pmd;
 	pte_t pte, *ptep;
 	pgd_t *fake_pgd_kern = NULL;
+	int i = 0, j = 0, k = 0, count = 0;
 
-	pteval_t pfn;
+	//pteval_t pfn;
 	//pfn_t pfn;
+	unsigned long pfn = 0;
 
 	pgd_t *pgd_base;
 	spinlock_t *ptl;
@@ -66,16 +68,55 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	}
 
 	for(pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++) {
-		pr_err("came here 2\n");
+		pr_err("came here 2 \n");
+		k++;
 		if (pgd_none_or_clear_bad(pgd)) {
 			pr_err("came 2.1\n");
 			continue;
 		}
-		pud = pud_offset(pgd, 0);
+		for (i = 0; i < PAGE_SIZE / sizeof(*pud); i++) {
+			pud = pud_offset(pgd, PUD_SIZE * i);
+
+			if (pud_none(*pud) || pud_bad(*pud)) {
+				pr_err("came 2.2\n");
+				continue;
+			}
+			for (j = 0; j < PAGE_SIZE / sizeof(*pmd); j++) {
+				pmd = pmd_offset(pud, PMD_SIZE * j);
+				if (pmd_none(*pmd) || pmd_bad(*pmd)) {
+					pr_err("came 2.3\n");
+					continue;
+				}
+				/* pmd_val will give the base address
+				* of the pte page
+				*/
+				pfn = (pmd_val(*pmd) >> PAGE_SHIFT) << PAGE_SHIFT;
+				//pfn = page_to_pfn(pmd_page(*pmd));
+				ret = remap_pfn_range(vma,
+						(addr + (count*PAGE_SIZE)),
+						pfn, PAGE_SIZE,
+						PROT_READ);
+				if (ret) {
+					pr_err("remap_pfn_range failed");
+					pr_err(" pfn = %d, i = %d, j = %d\n",
+						pfn, i, j);
+					up_read(&mm->mmap_sem);
+					kfree(fake_pgd_kern);
+					return -EFAULT;
+				}
+				count++;
+				pr_err("came 3.1 count = %d i = %d j = %d k = %d\n",
+						count, i, j, k);
+			}
+			break;
+		}
+		break;
+		/*pud = pud_offset(pgd, 0);
 		if (pud_none(*pud)) {
 			pr_err("came 2.2\n");
 			continue;
 		}
+
 		pmd = pmd_offset(pud, 0);
 		if (pmd_none(*pmd) || pmd_bad(*pmd)) {
 			pr_err("came 2.3\n");
@@ -96,7 +137,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		ret = remap_pfn_range(vma, addr, pfn, 4096, vma->vm_flags);
 		pr_err("came here 3\n");
 		break;
-
+		*/
 	}
 	pr_err("came here 4\n");
 	up_read(&mm->mmap_sem);
@@ -114,6 +155,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		kfree(fake_pgd_kern);
 		return -EFAULT;
 	}
+	pr_err("came here 6\n");
 
 	return 0;
 }
