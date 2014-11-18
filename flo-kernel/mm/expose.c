@@ -29,7 +29,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	pmd_t *pmd;
 	pte_t pte, *ptep;
 	pgd_t *fake_pgd_kern = NULL;
-	int i = 0, j = 0, k = 0, count = 0;
+	int i = 0, j = 0, k = 0, pte_count = 0;
 
 	//pteval_t pfn;
 	//pfn_t pfn;
@@ -103,7 +103,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				pfn = (pmd_val(*pmd) >> PAGE_SHIFT) << PAGE_SHIFT;
 				//pfn = page_to_pfn(pmd_page(*pmd));
 				ret = remap_pfn_range(vma,
-						(addr + (count*PAGE_SIZE)),
+						(addr + (pte_count*PAGE_SIZE)),
 						pfn, PAGE_SIZE,
 						PROT_READ);
 				if (ret) {
@@ -114,9 +114,9 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					kfree(fake_pgd_kern);
 					return -EFAULT;
 				}
-				count++;
+				pte_count++;
 				pr_err("came 3.1 count = %d i = %d j = %d k = %d\n",
-						count, i, j, k);
+						pte_count, i, j, k);
 			}
 			break;
 		}
