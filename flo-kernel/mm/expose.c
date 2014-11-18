@@ -6,11 +6,21 @@
 #include <asm-generic/mman-common.h>
 #include <asm/pgtable.h>
 #include <linux/mm.h>
+#include <linux/atomic.h>
+
+/*adds a pte entry in the fake pgd table*/
+static void add_fake_pgd_entry(pgd_t *fake_pgd_kern, pgd_t pte_base_ptr, int *count) {
+	*(fake_pgd_kern + *count)[0] = pte_base_ptr[0];
+	*(fake_pgd_kern + *count)[1] = pte_base_ptr[1];
+	*count += 1;
+	
+}
 
 SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		unsigned long, fake_pgd,
 		unsigned long, addr)
 {
+	int count=0;
 	struct task_struct *task;
 	struct mm_struct *mm;
 	struct vm_area_struct *vma;
@@ -106,7 +116,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 			2263                     unsigned long pfn, unsigned
 						 long size, pgprot_t prot)
 	*/
-
+	
 	if (copy_to_user((void *)fake_pgd, fake_pgd_kern,
 				PAGE_SIZE*4)) {
 		pr_err("expose_page_table: copy_to_user");
