@@ -66,21 +66,25 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 			continue;
 		}
 		pud = pud_offset(pgd, 0);
-		if (pud_none_or_clear_bad(pud)) {
+		if (pud_none(*pud)) {
 			pr_err("came 2.2\n");
 			continue;
 		}
 		pmd = pmd_offset(pud, 0);
-		if (pmd_none_or_clear_bad(pmd)) {
+		if (pmd_none(*pmd) || pmd_bad(*pmd)) {
 			pr_err("came 2.3\n");
 			continue;
 		}
 		ptep = pte_offset_map(pmd, 0);
+		if (!ptep)
+			continue;
+
 		pte = *ptep;
 		if (pte_none(pte)) {
 			pr_err("came 2.4\n");
 			continue;
 		}
+		pr_err("came 2.4.1\n");
 		pfn = pte_pfn(pte);
 		pr_err("came 2.5\n");
 		ret = remap_pfn_range(vma, addr, pfn, 4096, vma->vm_flags);
