@@ -13,6 +13,7 @@
 #define MAX_FILE_SIZE	16
 #define PAGE_SIZE	4096
 #define MMAP_SIZE	2048*PAGE_SIZE
+#define MAX_PGD_ENTRIES	2048
 
 static int verbose;
 static int pid = -1;
@@ -44,9 +45,10 @@ static void validate_args(int argc, char **argv)
 int main(int argc, char **argv)
 {
 	int ret;
+	int i;
 	int fd = -1;
 	void *mmap_addr = NULL;
-	void *pgd_addr = NULL;
+	unsigned long *pgd_addr = NULL;
 	char unique_file_name[MAX_FILE_SIZE] = "";
 
 	validate_args(argc, argv);
@@ -68,7 +70,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	pgd_addr = malloc(PAGE_SIZE*4);
+	pgd_addr = (unsigned long *) malloc(PAGE_SIZE*4);
 
 	if (pgd_addr == NULL) {
 		printf("error in allocating memory\n");
@@ -82,6 +84,15 @@ int main(int argc, char **argv)
 	if (ret != 0) {
 		printf("Syscall failed with error: %s\n", strerror(errno));
 		return -1;
+	}
+
+	printf("mmap start: %x\n", (unsigned int)mmap_addr);
+	printf("mmap end: %x\n", (unsigned int)(mmap_addr + MMAP_SIZE));
+	for (i=0; i<MAX_PGD_ENTRIES; i++) {
+		if (((void *)pgd_addr[i]) != NULL) {
+			printf("fake_pgd[%d]: %x\n", i,
+					(unsigned int)(pgd_addr[i]));
+		}
 	}
 
 	ret = close(fd);

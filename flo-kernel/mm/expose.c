@@ -8,6 +8,13 @@
 #include <linux/mm.h>
 #include <linux/atomic.h>
 
+
+static struct task_struct *find_process_by_pid(pid_t pid)
+{
+	return pid ? find_task_by_vpid(pid) : current;
+}
+
+
 SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		unsigned long, fake_pgd,
 		unsigned long, addr)
@@ -43,11 +50,12 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		return -ENOMEM;
 	}
 	//TODO access_ok for addr
-	read_lock(&tasklist_lock);
+	rcu_read_lock();
 	if (pid == -1)
 		mm = current->mm;
 	else {
-		task = pid_task(find_vpid(pid), PIDTYPE_PID);
+		//task = pid_task(find_vpid(pid), PIDTYPE_PID);
+		task = find_process_by_pid(pid);
 		pr_err("task is: %x\n", task);
 		if (task == NULL) {
 			pr_err("expose_page_table: No task with pid: %d\n",
@@ -56,6 +64,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 			read_unlock(&tasklist_lock);
 			return -EINVAL;
 		}
+		pr_err("Found task_struct with pid: %d\n", task->pid);
 		mm = task->mm;
 		if (mm == NULL) {
 			pr_err("expose_page_table: mm is: %x\n",
@@ -65,7 +74,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 			return -EFAULT;
 		}
 	}
-	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 	//pr_err("came here 2\n");
 
 	down_read(&mm->mmap_sem);
@@ -154,6 +163,8 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					return -EFAULT;
 				}
 				//add_fake_pgd_entry(fake_pgd_kern, addr + (pte_count*PAGE_SIZE), pte_count);
+				pr_err("Inserting number %d into fake pgd at index: %d\n",
+						pte_count, k);
 				fake_pgd_kern[k] =
 					(addr + (pte_count*PAGE_SIZE));
 
