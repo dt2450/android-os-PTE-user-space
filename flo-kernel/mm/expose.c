@@ -118,9 +118,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				/* pmd_val will give the base address
 				* of the pte page
 				*/
-				pfn = (pmd_val(*pmd) >> PAGE_SHIFT) << PAGE_SHIFT;
+				pfn = __pfn_to_phys(__phys_to_pfn
+						(pmd_val(*pmd)));
 				//pfn = page_to_pfn(pmd_page(*pmd));
-				
+
 				ret = remap_pfn_range(vma,
 						(addr + (pte_count*PAGE_SIZE)),
 						pfn, PAGE_SIZE,
