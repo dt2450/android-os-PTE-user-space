@@ -12,14 +12,12 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		unsigned long, fake_pgd,
 		unsigned long, addr)
 {
-	int count=0;
 	struct task_struct *task;
 	struct mm_struct *mm;
 	struct vm_area_struct *vma;
 	pgd_t *pgd, *prev_pgd = NULL;
 	pud_t *pud, *prev_pud = NULL;
 	pmd_t *pmd, *prev_pmd = NULL;
-	pte_t pte, *ptep;
 	unsigned long *fake_pgd_kern = NULL;
 	int i = 0, j = 0, k = 0, pte_count = 0;
 
@@ -28,7 +26,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	unsigned long pfn = 0;
 
 	pgd_t *pgd_base;
-	spinlock_t *ptl;
 	int ret;
 
 	printk("pid: %d\n", pid);
@@ -51,20 +48,39 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		mm = current->mm;
 	else {
 		task = pid_task(find_vpid(pid), PIDTYPE_PID);
+		pr_err("task is: %x\n", task);
+		if (task == NULL) {
+			pr_err("expose_page_table: No task with pid: %d\n",
+					pid);
+			kfree(fake_pgd_kern);
+			read_unlock(&tasklist_lock);
+			return -EINVAL;
+		}
 		mm = task->mm;
+		if (mm == NULL) {
+			pr_err("expose_page_table: mm is: %x\n",
+					mm);
+			kfree(fake_pgd_kern);
+			read_unlock(&tasklist_lock);
+			return -EFAULT;
+		}
 	}
 	read_unlock(&tasklist_lock);
+	//pr_err("came here 2\n");
 
 	down_read(&mm->mmap_sem);
 
 	pgd_base = mm->pgd;
+	//pr_err("came here 2.1\n");
 	vma = find_vma(mm, addr);
-	vma->vm_flags |= VM_DONTEXPAND;
 	if (vma == NULL) {
 		pr_err("expose_page_table: vma is NULL\n");
 		kfree(fake_pgd_kern);
+		up_read(&mm->mmap_sem);
 		return -EFAULT;
 	}
+	vma->vm_flags |= VM_DONTEXPAND;
+	//pr_err("came here 2.2\n");
 
 	for(pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++, k++) {
 		if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd))) {
@@ -131,8 +147,8 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 						PROT_READ);
 				if (ret) {
 					pr_err("remap_pfn_range failed");
-					pr_err(" pfn = %d, i = %d, j = %d\n",
-						pfn, i, j);
+					pr_err(" pfn=%d, i=%d, j=%d, k=%d\n",
+						pfn, i, j, k);
 					up_read(&mm->mmap_sem);
 					kfree(fake_pgd_kern);
 					return -EFAULT;

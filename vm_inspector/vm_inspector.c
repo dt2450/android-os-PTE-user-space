@@ -74,8 +74,8 @@ int main(int argc, char **argv)
 		printf("error in allocating memory\n");
 		return -1;
 	}
-/*
-	ret = syscall(syscall_no_expose_page_table, -1, pgd_addr, mmap_addr);
+
+	ret = syscall(syscall_no_expose_page_table, pid, pgd_addr, mmap_addr);
 	printf("Ret: %d mmap_addr = %u, pgd_addr = %u\n",
 			ret, (unsigned int)mmap_addr, (unsigned int)pgd_addr);
 
@@ -83,7 +83,6 @@ int main(int argc, char **argv)
 		printf("Syscall failed with error: %s\n", strerror(errno));
 		return -1;
 	}
-	*/
 
 	ret = close(fd);
 	if (ret != 0) {
