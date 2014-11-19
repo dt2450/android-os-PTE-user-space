@@ -2287,17 +2287,13 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 	 * behaviour that some programs depend on. We mark the "original"
 	 * un-COW'ed pages by matching them up with "vma->vm_pgoff".
 	 */
-	pr_err("Came here 1\n");
 	if (addr == vma->vm_start && end == vma->vm_end) {
-		pr_err("Came here 2\n");
 		vma->vm_pgoff = pfn;
 		vma->vm_flags |= VM_PFN_AT_MMAP;
 	} else if (is_cow_mapping(vma->vm_flags)) {
-		pr_err("Came here 3\n");
 		return -EINVAL;
 	}
 
-	pr_err("Came here 4\n");
 	vma->vm_flags |= VM_IO | VM_RESERVED | VM_PFNMAP;
 
 	err = track_pfn_vma_new(vma, &prot, pfn, PAGE_ALIGN(size));
@@ -2308,18 +2304,14 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 		 */
 		vma->vm_flags &= ~(VM_IO | VM_RESERVED | VM_PFNMAP);
 		vma->vm_flags &= ~VM_PFN_AT_MMAP;
-		pr_err("Came here 5\n");
 		return -EINVAL;
 	}
 
-	pr_err("Came here 6\n");
 	BUG_ON(addr >= end);
-	pr_err("Came here 7\n");
 	pfn -= addr >> PAGE_SHIFT;
 	pgd = pgd_offset(mm, addr);
 	flush_cache_range(vma, addr, end);
 	do {
-		pr_err("Came here 8\n");
 		next = pgd_addr_end(addr, end);
 		err = remap_pud_range(mm, pgd, addr, next,
 				pfn + (addr >> PAGE_SHIFT), prot);
@@ -2327,11 +2319,9 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 			break;
 	} while (pgd++, addr = next, addr != end);
 
-	pr_err("Came here 9\n");
 	if (err)
 		untrack_pfn_vma(vma, pfn, PAGE_ALIGN(size));
 
-	pr_err("Came here 10\n");
 	return err;
 }
 EXPORT_SYMBOL(remap_pfn_range);

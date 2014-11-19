@@ -24,9 +24,9 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	struct task_struct *task;
 	struct mm_struct *mm;
 	struct vm_area_struct *vma;
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
+	pgd_t *pgd, *prev_pgd = NULL;
+	pud_t *pud, *prev_pud = NULL;
+	pmd_t *pmd, *prev_pmd = NULL;
 	pte_t pte, *ptep;
 	pgd_t *fake_pgd_kern = NULL;
 	int i = 0, j = 0, k = 0, pte_count = 0;
@@ -62,12 +62,8 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	}
 	read_unlock(&tasklist_lock);
 
-	pr_err("came here 1.1: task->mm->mmap_sem->activity: %d\n",
-			mm->mmap_sem.activity);
 	down_read(&mm->mmap_sem);
 
-	pr_err("came here 1.1: task->mm->mmap_sem->activity: %d\n",
-                        mm->mmap_sem.activity);
 	pgd_base = mm->pgd;
 	vma = find_vma(mm, addr);
 	vma->vm_flags |= VM_DONTEXPAND;
@@ -78,23 +74,47 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	}
 
 	for(pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++) {
-		pr_err("came here 2 \n");
 		k++;
-		if (pgd_none_or_clear_bad(pgd)) {
-			pr_err("came 2.1\n");
+		if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd))) {
 			continue;
 		}
+		if (pgd == prev_pgd) {
+			//pr_err("prev_pgd same\n");
+			continue;
+		}
+		//for debugging
+		//pr_err("came 2.1 count = %d i = %d j = %d k = %d pgd = 0x%x\n",
+		//		pte_count, i, j, k, pgd);
+
 		for (i = 0; i < PAGE_SIZE / sizeof(*pud); i++) {
 			pud = pud_offset(pgd, PUD_SIZE * i);
 
+			//for debugging
+			//pr_err("came 3.0.1 count = %d i = %d j = %d k = %d pud = 0x%x\n",
+			//		pte_count, i, j, k, pud);
 			if (pud_none(*pud) || pud_bad(*pud)) {
-				pr_err("came 2.2\n");
+				//pr_err("came 2.2\n");
 				continue;
 			}
+			if (pud == prev_pud) {
+				//pr_err("prev_pud same\n");
+				continue;
+			}
+			//for debugging
+			//pr_err("came 3.0 count = %d i = %d j = %d k = %d\n",
+			//		pte_count, i, j, k);
 			for (j = 0; j < PAGE_SIZE / sizeof(*pmd); j++) {
 				pmd = pmd_offset(pud, PMD_SIZE * j);
 				if (pmd_none(*pmd) || pmd_bad(*pmd)) {
-					pr_err("came 2.3\n");
+					//pr_err("came 2.3\n");
+					//for debugging
+					//up_read(&mm->mmap_sem);
+					//kfree(fake_pgd_kern);
+					//return -1;
+					continue;
+				}
+				if (pmd == prev_pmd) {
+					//pr_err("prev_pmd same\n");
 					continue;
 				}
 				/* pmd_val will give the base address
@@ -115,49 +135,18 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					return -EFAULT;
 				}
 				pte_count++;
-				pr_err("came 3.1 count = %d i = %d j = %d k = %d\n",
-						pte_count, i, j, k);
+				prev_pmd = pmd;
 			}
-			break;
+			prev_pud = pud;
 		}
-		break;
-		/*pud = pud_offset(pgd, 0);
-		if (pud_none(*pud)) {
-			pr_err("came 2.2\n");
-			continue;
-		}
-
-		pmd = pmd_offset(pud, 0);
-		if (pmd_none(*pmd) || pmd_bad(*pmd)) {
-			pr_err("came 2.3\n");
-			continue;
-		}
-		ptep = pte_offset_map(pmd, 0);
-		if (!ptep)
-			continue;
-
-		pte = *ptep;
-		if (pte_none(pte)) {
-			pr_err("came 2.4\n");
-			continue;
-		}
-		pr_err("came 2.4.1\n");
-		pfn = pte_pfn(pte);
-		pr_err("came 2.5\n");
-		ret = remap_pfn_range(vma, addr, pfn, 4096, vma->vm_flags);
-		pr_err("came here 3\n");
-		break;
-		*/
+		prev_pgd = pgd;
+		//for debugging
+		//break;
 	}
-	pr_err("came here 4\n");
+	pr_err("came 3.1 count = %d i = %d j = %d k = %d\n",
+			pte_count, i, j, k);
 	up_read(&mm->mmap_sem);
-	pr_err("came here 5\n");
-	/*
-	remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
-			2263                     unsigned long pfn, unsigned
-						 long size, pgprot_t prot)
-	*/
-	
+
 	if (copy_to_user((void *)fake_pgd, fake_pgd_kern,
 				PAGE_SIZE*4)) {
 		pr_err("expose_page_table: copy_to_user");
