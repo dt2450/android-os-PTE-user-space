@@ -14,6 +14,33 @@
 #define PAGE_SIZE	4096
 #define MMAP_SIZE	2048*PAGE_SIZE
 
+static int verbose;
+static int pid = -1;
+#define VERBOSE_OPTION	"-v"
+
+static void set_verbose_or_pid(char *s)
+{
+	if (strcmp(s, VERBOSE_OPTION) == 0)
+		verbose = 1;
+	else
+		pid = atoi(s);
+}
+
+static void validate_args(int argc, char **argv)
+{
+	if (argc > 3) {
+		printf("Usage: ./vm_inspector [-v] [pid]\n");
+		exit(-1);
+	}
+
+	if (argc == 2) {
+		set_verbose_or_pid(argv[1]);
+	} else if (argc == 3) {
+		set_verbose_or_pid(argv[1]);
+		set_verbose_or_pid(argv[2]);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
@@ -22,6 +49,8 @@ int main(int argc, char **argv)
 	void *pgd_addr = NULL;
 	char unique_file_name[MAX_FILE_SIZE] = "";
 
+	validate_args(argc, argv);
+	printf("Pid: %d, verbose: %d\n", pid, verbose);
 	snprintf(unique_file_name, MAX_FILE_SIZE, "%s.%d", MMAP_FILE_BASE,
 			getpid());
 
@@ -45,10 +74,16 @@ int main(int argc, char **argv)
 		printf("error in allocating memory\n");
 		return -1;
 	}
-
+/*
 	ret = syscall(syscall_no_expose_page_table, -1, pgd_addr, mmap_addr);
 	printf("Ret: %d mmap_addr = %u, pgd_addr = %u\n",
 			ret, (unsigned int)mmap_addr, (unsigned int)pgd_addr);
+
+	if (ret != 0) {
+		printf("Syscall failed with error: %s\n", strerror(errno));
+		return -1;
+	}
+	*/
 
 	ret = close(fd);
 	if (ret != 0) {
