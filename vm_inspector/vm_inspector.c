@@ -12,7 +12,7 @@
 #define MMAP_FILE_BASE	"./_mmap"
 #define MAX_FILE_SIZE	16
 #define PAGE_SIZE	4096
-#define MMAP_SIZE	1536*PAGE_SIZE
+#define MMAP_SIZE	2048*PAGE_SIZE
 
 int main(int argc, char **argv)
 {
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	mmap_addr = mmap(0, MMAP_SIZE*2, PROT_READ, MAP_SHARED, fd, 0);
+	mmap_addr = mmap(0, MMAP_SIZE, PROT_READ, MAP_SHARED, fd, 0);
 
 	if (mmap_addr == MAP_FAILED) {
 		printf("mmap failed with error: %s\n", strerror(errno));

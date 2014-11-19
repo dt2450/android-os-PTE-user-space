@@ -8,12 +8,6 @@
 #include <linux/mm.h>
 #include <linux/atomic.h>
 
-/*adds a pte entry in the fake pgd table*/
-static void add_fake_pgd_entry(unsigned long *fake_pgd_kern, u32 pte_base_ptr, int index) {
-	*(fake_pgd_kern + index) = pte_base_ptr;
-
-}
-
 SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		unsigned long, fake_pgd,
 		unsigned long, addr)
@@ -46,7 +40,8 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		return -EINVAL;
 	}
 
-	fake_pgd_kern = kcalloc(2048, sizeof(unsigned long), GFP_KERNEL);
+	fake_pgd_kern = kcalloc(PTRS_PER_PGD,
+			sizeof(unsigned long), GFP_KERNEL);
 	if (fake_pgd_kern == NULL) {
 		return -ENOMEM;
 	}
@@ -71,8 +66,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		return -EFAULT;
 	}
 
-	for(pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++) {
-		k++;
+	for(pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++, k++) {
 		if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd))) {
 			continue;
 		}
@@ -115,6 +109,15 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					//pr_err("prev_pmd same\n");
 					continue;
 				}
+
+				if (pte_count >= PTRS_PER_PGD) {
+					pr_err(
+					"pte_count %d exceeds max limit\n",
+					pte_count);
+					up_read(&mm->mmap_sem);
+					kfree(fake_pgd_kern);
+					return -EFAULT;
+				}
 				/* pmd_val will give the base address
 				* of the pte page
 				*/
@@ -134,7 +137,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					kfree(fake_pgd_kern);
 					return -EFAULT;
 				}
-				add_fake_pgd_entry(fake_pgd_kern, addr + (pte_count*PAGE_SIZE), pte_count);
+				//add_fake_pgd_entry(fake_pgd_kern, addr + (pte_count*PAGE_SIZE), pte_count);
+				fake_pgd_kern[k] =
+					(addr + (pte_count*PAGE_SIZE));
+
 				pte_count++;
 				prev_pmd = pmd;
 			}
