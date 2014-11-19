@@ -2291,6 +2291,8 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 		vma->vm_pgoff = pfn;
 		vma->vm_flags |= VM_PFN_AT_MMAP;
 	} else if (is_cow_mapping(vma->vm_flags)) {
+		//for debugging
+		pr_err("Came here cow mapping %lu\n", vma->vm_flags);
 		return -EINVAL;
 	}
 

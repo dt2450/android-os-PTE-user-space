@@ -71,7 +71,8 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	pgd_addr = (unsigned long *) malloc(PAGE_SIZE*4);
+	pgd_addr = (unsigned long *) malloc(MAX_PGD_ENTRIES*
+			sizeof(unsigned long));
 
 	if (pgd_addr == NULL) {
 		printf("error in allocating memory\n");
