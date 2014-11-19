@@ -50,5 +50,15 @@ int main(int argc, char **argv)
 	printf("Ret: %d mmap_addr = %u, pgd_addr = %u\n",
 			ret, (unsigned int)mmap_addr, (unsigned int)pgd_addr);
 
+	ret = close(fd);
+	if (ret != 0) {
+		printf("Error in closing fd\n");
+		return -1;
+	}
+	ret = remove(unique_file_name);
+	if (ret != 0) {
+		printf("Error in removing file\n");
+		return -1;
+	}
 	return 0;
 }

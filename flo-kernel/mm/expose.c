@@ -11,7 +11,7 @@
 /*adds a pte entry in the fake pgd table*/
 static void add_fake_pgd_entry(unsigned long *fake_pgd_kern, u32 pte_base_ptr, int index) {
 	*(fake_pgd_kern + index) = pte_base_ptr;
-	
+
 }
 
 SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
