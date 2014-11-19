@@ -9,10 +9,8 @@
 #include <linux/atomic.h>
 
 /*adds a pte entry in the fake pgd table*/
-static void add_fake_pgd_entry(pgd_t *fake_pgd_kern, pgd_t pte_base_ptr, int *count) {
-	*(fake_pgd_kern + *count)[0] = pte_base_ptr[0];
-	*(fake_pgd_kern + *count)[1] = pte_base_ptr[1];
-	*count += 1;
+static void add_fake_pgd_entry(unsigned long *fake_pgd_kern, u32 pte_base_ptr, int index) {
+	*(fake_pgd_kern + index) = pte_base_ptr;
 	
 }
 
@@ -28,7 +26,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	pud_t *pud;
 	pmd_t *pmd;
 	pte_t pte, *ptep;
-	pgd_t *fake_pgd_kern = NULL;
+	unsigned long *fake_pgd_kern = NULL;
 	int i = 0, j = 0, k = 0, pte_count = 0;
 
 	//pteval_t pfn;
@@ -48,7 +46,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		return -EINVAL;
 	}
 
-	fake_pgd_kern = kcalloc(4, PAGE_SIZE, GFP_KERNEL);
+	fake_pgd_kern = kcalloc(2048, sizeof(unsigned long), GFP_KERNEL);
 	if (fake_pgd_kern == NULL) {
 		return -ENOMEM;
 	}
@@ -91,7 +89,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				pr_err("came 2.2\n");
 				continue;
 			}
-			for (j = 0; j < PAGE_SIZE / sizeof(*pmd); j++) {
+			for (j = 512; j < PAGE_SIZE / sizeof(*pmd); j++) {
 				pmd = pmd_offset(pud, PMD_SIZE * j);
 				if (pmd_none(*pmd) || pmd_bad(*pmd)) {
 					pr_err("came 2.3\n");
@@ -102,6 +100,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				*/
 				pfn = (pmd_val(*pmd) >> PAGE_SHIFT) << PAGE_SHIFT;
 				//pfn = page_to_pfn(pmd_page(*pmd));
+				
 				ret = remap_pfn_range(vma,
 						(addr + (pte_count*PAGE_SIZE)),
 						pfn, PAGE_SIZE,
@@ -114,6 +113,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					kfree(fake_pgd_kern);
 					return -EFAULT;
 				}
+				add_fake_pgd_entry(fake_pgd_kern, addr + (pte_count*PAGE_SIZE), pte_count);
 				pte_count++;
 				pr_err("came 3.1 count = %d i = %d j = %d k = %d\n",
 						pte_count, i, j, k);
