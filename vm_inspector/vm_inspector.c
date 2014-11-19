@@ -9,7 +9,7 @@
 #include <errno.h>
 
 #define syscall_no_expose_page_table	378
-#define MMAP_FILE_BASE	"./_mmap"
+#define MMAP_FILE_BASE	"/dev/zero"
 #define MAX_FILE_SIZE	16
 #define PAGE_SIZE	4096
 #define MMAP_SIZE	2048*PAGE_SIZE
@@ -56,7 +56,8 @@ int main(int argc, char **argv)
 	snprintf(unique_file_name, MAX_FILE_SIZE, "%s.%d", MMAP_FILE_BASE,
 			getpid());
 
-	fd = open(unique_file_name, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
+	fd = open(MMAP_FILE_BASE
+			, O_RDONLY);
 
 	if (fd == -1) {
 		printf("Open failed with error: %s\n", strerror(errno));
@@ -94,7 +95,7 @@ int main(int argc, char **argv)
 					(unsigned int)(pgd_addr[i]));
 		}
 	}
-
+/*
 	ret = close(fd);
 	if (ret != 0) {
 		printf("Error in closing fd\n");
@@ -105,5 +106,6 @@ int main(int argc, char **argv)
 		printf("Error in removing file\n");
 		return -1;
 	}
+*/
 	return 0;
 }

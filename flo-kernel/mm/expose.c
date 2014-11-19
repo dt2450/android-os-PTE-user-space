@@ -22,9 +22,9 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	struct task_struct *task;
 	struct mm_struct *mm;
 	struct vm_area_struct *vma;
-	pgd_t *pgd, *prev_pgd = NULL;
-	pud_t *pud, *prev_pud = NULL;
-	pmd_t *pmd, *prev_pmd = NULL;
+	pgd_t *pgd = NULL;
+	pud_t *pud = NULL;
+	pmd_t *pmd = NULL;
 	unsigned long *fake_pgd_kern = NULL;
 	int i = 0, j = 0, k = 0, pte_count = 0;
 
@@ -95,15 +95,11 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd))) {
 			continue;
 		}
-		if (pgd == prev_pgd) {
-			//pr_err("prev_pgd same\n");
-			continue;
-		}
 		//for debugging
-		//pr_err("came 2.1 count = %d i = %d j = %d k = %d pgd = 0x%x\n",
-		//		pte_count, i, j, k, pgd);
+		pr_err("came 2.1 count = %d i = %d j = %d k = %d pgd = 0x%x\n",
+				pte_count, i, j, k, pgd);
 
-		for (i = 0; i < PAGE_SIZE / sizeof(*pud); i++) {
+		for (i = 0; i < PTRS_PER_PUD; i++) {
 			pud = pud_offset(pgd, PUD_SIZE * i);
 
 			//for debugging
@@ -113,14 +109,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				//pr_err("came 2.2\n");
 				continue;
 			}
-			if (pud == prev_pud) {
-				//pr_err("prev_pud same\n");
-				continue;
-			}
 			//for debugging
 			//pr_err("came 3.0 count = %d i = %d j = %d k = %d\n",
 			//		pte_count, i, j, k);
-			for (j = 0; j < PAGE_SIZE / sizeof(*pmd); j++) {
+			for (j = 0; j < PTRS_PER_PMD; j++) {
 				pmd = pmd_offset(pud, PMD_SIZE * j);
 				if (pmd_none(*pmd) || pmd_bad(*pmd)) {
 					//pr_err("came 2.3\n");
@@ -128,10 +120,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					//up_read(&mm->mmap_sem);
 					//kfree(fake_pgd_kern);
 					//return -1;
-					continue;
-				}
-				if (pmd == prev_pmd) {
-					//pr_err("prev_pmd same\n");
 					continue;
 				}
 
@@ -153,9 +141,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				ret = remap_pfn_range(vma,
 						(addr + (pte_count*PAGE_SIZE)),
 						pfn, PAGE_SIZE,
-						PROT_READ);
+						vma->vm_page_prot);
 				if (ret) {
-					pr_err("remap_pfn_range failed");
+					pr_err("remap_pfn_range failed: ret: %d\n",
+							ret);
 					pr_err(" pfn=%d, i=%d, j=%d, k=%d\n",
 						pfn, i, j, k);
 					up_read(&mm->mmap_sem);
@@ -169,11 +158,8 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					(addr + (pte_count*PAGE_SIZE));
 
 				pte_count++;
-				prev_pmd = pmd;
 			}
-			prev_pud = pud;
 		}
-		prev_pgd = pgd;
 		//for debugging
 		//break;
 	}

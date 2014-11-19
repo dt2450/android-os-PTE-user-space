@@ -6,14 +6,11 @@
 #include <sys/syscall.h>
 #include <errno.h>
 
-#define __NR_expose_page_table	378
 
 int main(int argc, char **argv)
 {
-	int ret;
-
-	ret = syscall(__NR_expose_page_table, 111, 222, 333);
-	printf("Ret: %d\n", ret);
+	while(1)
+		printf("While 1\n");
 
 	return 0;
 }
