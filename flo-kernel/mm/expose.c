@@ -160,8 +160,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				unsigned int *v, diff;
 				v = (unsigned int *)pgd;
 				diff = v[1] - v[0];
-				if (diff != 1024)
+				if (diff != 1024) {
 					pr_err("Diff: %d\n", diff);
+					//continue;
+				}
 				//==============================
 				//pfn = __pfn_to_phys(__phys_to_pfn
 				//		(pmd_val(*pmd)));

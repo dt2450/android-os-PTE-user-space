@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 		if (((void *)fake_pgd_base[i]) != NULL) {
 			pte_base = (unsigned long *)
 				(fake_pgd_base[i]);
-			printf("======PTE Page %d==========\n", (i+1));
+			printf("====== PTE Page %d ==========\n", (i+1));
 			for (j = 512; j < MAX_PTE_ENTRIES; j++) {
 				pte_entry = pte_base[j];
 				/* zero out the offset bits 
