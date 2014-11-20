@@ -39,7 +39,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	printk("fake_pgd: %lu\n", fake_pgd);
 	printk("addr: %lu\n", addr);
 
-	if (pid < -1) {
+	if (pid < -1 || pid == 0) {
 		pr_err("expose_page_table: invalid pid: %d\n", pid);
 		return -EINVAL;
 	}
