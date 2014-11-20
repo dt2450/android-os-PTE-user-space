@@ -10,7 +10,7 @@
 
 #include "vm_inspector.h"
 
-static int verbose;
+static int verbose = 0;
 static int pid = -1;
 
 static void set_verbose_or_pid(char *s)
@@ -41,6 +41,7 @@ int main(int argc, char **argv)
 	int ret;
 	int i, j;
 	int fd = -1;
+	int should_print = 0;
 	void *mmap_addr = NULL;
 	unsigned long *pte_base = NULL;
 	unsigned long page_phy_addr = NULL;
@@ -105,7 +106,8 @@ int main(int argc, char **argv)
 				/* zero out the offset bits 
 				 * to get the physical address
 				 */
-				if(!pte_none(pte_entry)) {
+				should_print = (!pte_none(pte_entry)) || verbose;
+				if (should_print) {
 					page_phy_addr =
 					(pte_entry >> PAGE_SHIFT) << PAGE_SHIFT;
 					printf("0x%lx 0x%lx 0x%lx %d %d %d %d %d\n"
