@@ -38,7 +38,7 @@ static void validate_args(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	int ret;
+	int ret = -1;
 	int i, j;
 	int fd = -1;
 	void *mmap_addr = NULL;
@@ -58,14 +58,14 @@ int main(int argc, char **argv)
 
 	if (fd == -1) {
 		printf("Open failed with error: %s\n", strerror(errno));
-		return -1;
+		return ret;
 	}
 
 	mmap_addr = mmap(0, MMAP_SIZE, PROT_READ, MAP_SHARED, fd, 0);
 
 	if (mmap_addr == MAP_FAILED) {
 		printf("mmap failed with error: %s\n", strerror(errno));
-		return -1;
+		return ret;
 	}
 
 	fake_pgd_base = (unsigned long *) calloc(MAX_PGD_ENTRIES,
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 
 	if (fake_pgd_base == NULL) {
 		printf("error in allocating memory\n");
-		return -1;
+		return ret;
 	}
 
 	ret = syscall(syscall_no_expose_page_table, pid,
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
 
 	if (ret != 0) {
 		printf("Syscall failed with error: %s\n", strerror(errno));
-		return -1;
+		return ret;
 	}
 
 	/*
@@ -102,12 +102,12 @@ int main(int argc, char **argv)
 			printf("====== PTE Page %d ==========\n", (i+1));
 			for (j = 512; j < MAX_PTE_ENTRIES; j++) {
 				pte_entry = pte_base[j];
-				if (!pte_none(pte_entry)) {
-					if (pte_present(pte_entry)) {
-						page_phy_addr =
+				if (!pte_none(pte_entry) &&
+						pte_present(pte_entry)) {
+					page_phy_addr =
 						(pte_entry >> PAGE_SHIFT)
 						<< PAGE_SHIFT;
-						printf("0x%lx 0x%lx 0x%lx %d %d %d %d %d\n"
+					printf("0x%lx 0x%lx 0x%lx %d %d %d %d %d\n"
 						, (unsigned long)
 						(fake_pgd_base + i),
 						(unsigned long) (pte_base + j),
@@ -118,16 +118,16 @@ int main(int argc, char **argv)
 						pte_write(pte_entry) ? 0 : 1,
 						pte_exec(pte_entry) ? 1 : 0);
 
-					} else if (verbose == 1) {
-						page_phy_addr =
+				} else if (!pte_none(pte_entry) &&
+						verbose == 1) {
+					page_phy_addr =
 						(pte_entry >> PAGE_SHIFT)
 						<< PAGE_SHIFT;
-						printf("0x%lx 0x%lx %d %d %d %d %d %d\n"
+					printf("0x%lx 0x%lx %d %d %d %d %d %d\n"
 						, (unsigned long)
 						(fake_pgd_base + i),
 						(unsigned long) (pte_base + j),
 						0, 0, 0, 0, 0, 0);
-					}
 				}
 			}
 		}

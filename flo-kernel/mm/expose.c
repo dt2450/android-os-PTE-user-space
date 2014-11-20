@@ -34,24 +34,18 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 
 	pgd_t *pgd_base;
 	int ret;
-/*
-	pr_err("pid: %d\n", pid);
-	pr_err("fake_pgd: %lu\n", fake_pgd);
-	pr_err("addr: %lu\n", addr);
-*/
+
 	if (pid < -1 || pid == 0) {
 		pr_err("expose_page_table: invalid pid: %d\n", pid);
 		return -EINVAL;
 	}
 
-	//TODO access_ok for addr
 	rcu_read_lock();
 	if (pid == -1) {
 		pid = current->pid;
 		my_pid = 1;
 	}
 	task = find_process_by_pid(pid);
-	pr_err("task is: %x\n", task);
 	if (task == NULL) {
 		pr_err("expose_page_table: No task with pid: %d\n",
 				pid);
@@ -69,7 +63,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	if (my_pid)
 		mm = curr_mm;
 	else {
-		pr_err("Found task_struct with pid: %d\n", task->pid);
 		mm = get_task_mm(task);
 		if (mm == NULL) {
 			pr_err("expose_page_table: mm is: %x\n",
@@ -153,13 +146,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				v = (unsigned int *)pgd;
 				diff = v[1] - v[0];
 				if (diff != 1024) {
-					pr_err("Diff: %d\n", diff);
-					//continue;
+					//pr_err("Diff: %d\n", diff);
+					continue;
 				}
-				/*
-				pfn = __pfn_to_phys(__phys_to_pfn
-						(pmd_val(*pmd)));
-				*/
+
 				current_page = pmd_page(*pmd);
 				atomic_inc(&current_page->_count);
 				pfn = page_to_pfn(current_page);
@@ -185,8 +175,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					kfree(fake_pgd_kern);
 					return -EFAULT;
 				}
-				pr_err("Inserting number %d into fake pgd at index: %d\n",
-						pte_count, k);
 				fake_pgd_kern[k] =
 					(addr + (pte_count*PAGE_SIZE));
 
@@ -194,8 +182,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 			}
 		}
 	}
-	pr_err("came 3.1 count = %d i = %d j = %d k = %d\n",
-			pte_count, i, j, k);
 	up_write(&curr_mm->mmap_sem);
 	mmput(curr_mm);
 	if (!my_pid) {
@@ -203,16 +189,15 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		mmput(mm);
 	}
 
-	pr_err("came here 8\n");
 	if (copy_to_user((unsigned long *)fake_pgd, fake_pgd_kern,
 				PTRS_PER_PGD*sizeof(unsigned long))) {
-		pr_err("expose_page_table: copy_to_user");
 		pr_err(" failed to copy fake_pgd\n");
 		kfree(fake_pgd_kern);
 		return -EFAULT;
 	}
 
-	pr_err("came here 9\n");
 	kfree(fake_pgd_kern);
+	pr_info("Success: count = %d i = %d j = %d k = %d\n",
+			pte_count, i, j, k);
 	return 0;
 }
