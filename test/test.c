@@ -11,6 +11,5 @@ int main(int argc, char **argv)
 {
 	while(1)
 		printf("While 1\n");
-
 	return 0;
 }

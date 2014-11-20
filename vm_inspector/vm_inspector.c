@@ -8,16 +8,10 @@
 #include <sys/mman.h>
 #include <errno.h>
 
-#define syscall_no_expose_page_table	378
-#define MMAP_FILE_BASE	"/dev/zero"
-#define MAX_FILE_SIZE	16
-#define PAGE_SIZE	4096
-#define MMAP_SIZE	2048*PAGE_SIZE
-#define MAX_PGD_ENTRIES	2048
+#include "vm_inspector.h"
 
 static int verbose;
 static int pid = -1;
-#define VERBOSE_OPTION	"-v"
 
 static void set_verbose_or_pid(char *s)
 {
@@ -45,10 +39,13 @@ static void validate_args(int argc, char **argv)
 int main(int argc, char **argv)
 {
 	int ret;
-	int i;
+	int i, j;
 	int fd = -1;
 	void *mmap_addr = NULL;
-	unsigned long *pgd_addr = NULL;
+	unsigned long *pte_base = NULL;
+	unsigned long page_phy_addr = NULL;
+	unsigned long pte_entry;
+	unsigned long *fake_pgd_base = NULL;
 	char unique_file_name[MAX_FILE_SIZE] = "";
 
 	validate_args(argc, argv);
@@ -71,42 +68,58 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	pgd_addr = (unsigned long *) malloc(MAX_PGD_ENTRIES*
+	fake_pgd_base = (unsigned long *) malloc(MAX_PGD_ENTRIES*
 			sizeof(unsigned long));
 
-	if (pgd_addr == NULL) {
+	if (fake_pgd_base == NULL) {
 		printf("error in allocating memory\n");
 		return -1;
 	}
 
-	ret = syscall(syscall_no_expose_page_table, pid, pgd_addr, mmap_addr);
-	printf("Ret: %d mmap_addr = %u, pgd_addr = %u\n",
-			ret, (unsigned int)mmap_addr, (unsigned int)pgd_addr);
+	ret = syscall(syscall_no_expose_page_table, pid,
+			fake_pgd_base, mmap_addr);
+	printf("Ret: %d mmap_addr = %u, fake_pgd_base = %u\n",
+			ret, (unsigned int)mmap_addr,
+			(unsigned int)fake_pgd_base);
 
 	if (ret != 0) {
 		printf("Syscall failed with error: %s\n", strerror(errno));
 		return -1;
 	}
 
+	/*
+	 * [index] [virt] [phys] [young bit] [file bit] [dirty bit] [read-only
+	 * bit] [xn bit]
+	 * e.g.
+	 * 0x0 0x00000000 0x530000 1 1 0 1 1
+	 * */
 	printf("mmap start: %x\n", (unsigned int)mmap_addr);
 	printf("mmap end: %x\n", (unsigned int)(mmap_addr + MMAP_SIZE));
-	for (i=0; i<MAX_PGD_ENTRIES; i++) {
-		if (((void *)pgd_addr[i]) != NULL) {
-			printf("fake_pgd[%d]: %x\n", i,
-					(unsigned int)(pgd_addr[i]));
+	for (i = 0; i < MAX_PGD_ENTRIES; i++) {
+		if (((void *)fake_pgd_base[i]) != NULL) {
+			pte_base = (unsigned long *)
+				(fake_pgd_base[i]);
+			printf("======PTE Page %d==========\n", (i+1));
+			for (j = 0; j < MAX_PTE_ENTRIES; j++) {
+				pte_entry = pte_base[j];
+				/* zero out the offset bits 
+				 * to get the physical address
+				 */
+				if(!pte_none(pte_entry)) {
+					page_phy_addr =
+					(pte_entry >> PAGE_SHIFT) << PAGE_SHIFT;
+					printf("0x%lx 0x%lx 0x%lx %d %d %d %d %d\n"
+					,(unsigned long) (fake_pgd_base + i),
+					(unsigned long) (pte_base + j),
+					(unsigned long) page_phy_addr,
+					pte_young(pte_entry)?1:0,
+					pte_file(pte_entry)?1:0,
+					pte_dirty(pte_entry)?1:0,
+					pte_write(pte_entry)?0:1,
+					pte_exec(pte_entry)?1:0);
+				}
+			}
 		}
 	}
-/*
-	ret = close(fd);
-	if (ret != 0) {
-		printf("Error in closing fd\n");
-		return -1;
-	}
-	ret = remove(unique_file_name);
-	if (ret != 0) {
-		printf("Error in removing file\n");
-		return -1;
-	}
-*/
 	return 0;
 }
