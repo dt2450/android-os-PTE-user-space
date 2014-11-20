@@ -10,7 +10,7 @@
 
 #include "vm_inspector.h"
 
-static int verbose = 0;
+static int verbose;
 static int pid = -1;
 
 static void set_verbose_or_pid(char *s)
@@ -41,7 +41,6 @@ int main(int argc, char **argv)
 	int ret;
 	int i, j;
 	int fd = -1;
-	//int should_print = 0;
 	void *mmap_addr = NULL;
 	unsigned long *pte_base = NULL;
 	unsigned long page_phy_addr = NULL;
@@ -103,30 +102,31 @@ int main(int argc, char **argv)
 			printf("====== PTE Page %d ==========\n", (i+1));
 			for (j = 512; j < MAX_PTE_ENTRIES; j++) {
 				pte_entry = pte_base[j];
-				/* zero out the offset bits 
-				 * to get the physical address
-				 */
 				if (!pte_none(pte_entry)) {
 					if (pte_present(pte_entry)) {
 						page_phy_addr =
-							(pte_entry >> PAGE_SHIFT) << PAGE_SHIFT;
+						(pte_entry >> PAGE_SHIFT)
+						<< PAGE_SHIFT;
 						printf("0x%lx 0x%lx 0x%lx %d %d %d %d %d\n"
-							,(unsigned long) (fake_pgd_base + i),
-							(unsigned long) (pte_base + j),
-							(unsigned long) page_phy_addr,
-							pte_young(pte_entry)?1:0,
-							pte_file(pte_entry)?1:0,
-							pte_dirty(pte_entry)?1:0,
-							pte_write(pte_entry)?0:1,
-							pte_exec(pte_entry)?1:0);
+						, (unsigned long)
+						(fake_pgd_base + i),
+						(unsigned long) (pte_base + j),
+						(unsigned long) page_phy_addr,
+						pte_young(pte_entry) ? 1 : 0,
+						pte_file(pte_entry) ? 1 : 0,
+						pte_dirty(pte_entry) ? 1 : 0,
+						pte_write(pte_entry) ? 0 : 1,
+						pte_exec(pte_entry) ? 1 : 0);
 
 					} else if (verbose == 1) {
 						page_phy_addr =
-						(pte_entry >> PAGE_SHIFT) << PAGE_SHIFT;
+						(pte_entry >> PAGE_SHIFT)
+						<< PAGE_SHIFT;
 						printf("0x%lx 0x%lx %d %d %d %d %d %d\n"
-							,(unsigned long) (fake_pgd_base + i),
-							(unsigned long) (pte_base + j),
-							0, 0, 0, 0, 0, 0);
+						, (unsigned long)
+						(fake_pgd_base + i),
+						(unsigned long) (pte_base + j),
+						0, 0, 0, 0, 0, 0);
 					}
 				}
 			}

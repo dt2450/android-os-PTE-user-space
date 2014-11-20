@@ -7,16 +7,16 @@
 #define MMAP_FILE_BASE	"/dev/zero"
 #define MAX_FILE_SIZE	16
 #define PAGE_SIZE	4096
-#define MMAP_SIZE	2048*PAGE_SIZE
+#define MMAP_SIZE	(2048 * PAGE_SIZE)
 #define MAX_PGD_ENTRIES	2048
-#define MAX_PTE_ENTRIES	(PAGE_SIZE/sizeof(unsigned long))
+#define MAX_PTE_ENTRIES	(PAGE_SIZE / sizeof(unsigned long))
 #define VERBOSE_OPTION	"-v"
 
 #define PAGE_SHIFT              12
 
 #define L_PTE_PRESENT           (_AT(unsigned long, 1) << 0)
 #define L_PTE_YOUNG             (_AT(unsigned long, 1) << 1)
-#define L_PTE_FILE              (_AT(unsigned long, 1) << 2) /* only when !PRESENT */
+#define L_PTE_FILE              (_AT(unsigned long, 1) << 2)
 #define L_PTE_DIRTY             (_AT(unsigned long, 1) << 6)
 #define L_PTE_RDONLY            (_AT(unsigned long, 1) << 7)
 #define L_PTE_USER              (_AT(unsigned long, 1) << 8)

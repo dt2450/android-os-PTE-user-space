@@ -34,11 +34,11 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 
 	pgd_t *pgd_base;
 	int ret;
-
-	printk("pid: %d\n", pid);
-	printk("fake_pgd: %lu\n", fake_pgd);
-	printk("addr: %lu\n", addr);
-
+/*
+	pr_err("pid: %d\n", pid);
+	pr_err("fake_pgd: %lu\n", fake_pgd);
+	pr_err("addr: %lu\n", addr);
+*/
 	if (pid < -1 || pid == 0) {
 		pr_err("expose_page_table: invalid pid: %d\n", pid);
 		return -EINVAL;
@@ -80,9 +80,8 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	}
 
 	down_write(&curr_mm->mmap_sem);
-	if (!my_pid) {
+	if (!my_pid)
 		down_read(&mm->mmap_sem);
-	}
 
 	pgd_base = mm->pgd;
 	vma = find_vma(curr_mm, addr);
@@ -121,26 +120,20 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		return -ENOMEM;
 	}
 
-	for(pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++, k++) {
-		if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd))) {
+	for (pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++, k++) {
+		if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd)))
 			continue;
-		}
-		//for debugging
-		//pr_err("came 2.1 count = %d i = %d j = %d k = %d pgd = 0x%x\n",
-		//		pte_count, i, j, k, pgd);
 
 		for (i = 0; i < PTRS_PER_PUD; i++) {
 			pud = pud_offset(pgd, PUD_SIZE * i);
 
-			if (pud_none(*pud) || pud_bad(*pud)) {
-				//pr_err("came 2.2\n");
+			if (pud_none(*pud) || pud_bad(*pud))
 				continue;
-			}
+
 			for (j = 0; j < PTRS_PER_PMD; j++) {
 				pmd = pmd_offset(pud, PMD_SIZE * j);
-				if (pmd_none(*pmd) || pmd_bad(*pmd)) {
+				if (pmd_none(*pmd) || pmd_bad(*pmd))
 					continue;
-				}
 
 				if (pte_count >= PTRS_PER_PGD) {
 					pr_err(
@@ -156,7 +149,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					return -EFAULT;
 				}
 
-				//==============================
 				unsigned int *v, diff;
 				v = (unsigned int *)pgd;
 				diff = v[1] - v[0];
@@ -164,9 +156,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					pr_err("Diff: %d\n", diff);
 					//continue;
 				}
-				//==============================
-				//pfn = __pfn_to_phys(__phys_to_pfn
-				//		(pmd_val(*pmd)));
+				/*
+				pfn = __pfn_to_phys(__phys_to_pfn
+						(pmd_val(*pmd)));
+				*/
 				current_page = pmd_page(*pmd);
 				atomic_inc(&current_page->_count);
 				pfn = page_to_pfn(current_page);
@@ -212,8 +205,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 
 	pr_err("came here 8\n");
 	if (copy_to_user((unsigned long *)fake_pgd, fake_pgd_kern,
-				PTRS_PER_PGD*sizeof(unsigned long)))
-	{
+				PTRS_PER_PGD*sizeof(unsigned long))) {
 		pr_err("expose_page_table: copy_to_user");
 		pr_err(" failed to copy fake_pgd\n");
 		kfree(fake_pgd_kern);
