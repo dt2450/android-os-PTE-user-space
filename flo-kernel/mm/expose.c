@@ -28,8 +28,9 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	pmd_t *pmd = NULL;
 	unsigned long *fake_pgd_kern = NULL;
 	int i = 0, j = 0, k = 0, pte_count = 0;
-
+	int my_pid = 0;
 	unsigned long pfn = 0;
+	struct page *current_page = NULL;
 
 	pgd_t *pgd_base;
 	int ret;
@@ -43,57 +44,72 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		return -EINVAL;
 	}
 
-	fake_pgd_kern = kcalloc(PTRS_PER_PGD,
-			sizeof(unsigned long), GFP_KERNEL);
-	if (fake_pgd_kern == NULL) {
-		return -ENOMEM;
-	}
 	//TODO access_ok for addr
 	rcu_read_lock();
+	if (pid == -1) {
+		pid = current->pid;
+		my_pid = 1;
+	}
+	task = find_process_by_pid(pid);
+	pr_err("task is: %x\n", task);
+	if (task == NULL) {
+		pr_err("expose_page_table: No task with pid: %d\n",
+				pid);
+		rcu_read_unlock();
+		return -EINVAL;
+	}
+	rcu_read_unlock();
+
 	curr_mm = get_task_mm(current);
-	if (pid == -1)
-		mm = get_task_mm(current);
+	if (curr_mm == NULL) {
+		pr_err("expose_page_table: curr_mm is: %x\n",
+				curr_mm);
+		return -EFAULT;
+	}
+	if (my_pid)
+		mm = curr_mm;
 	else {
-		//task = pid_task(find_vpid(pid), PIDTYPE_PID);
-		task = find_process_by_pid(pid);
-		pr_err("task is: %x\n", task);
-		if (task == NULL) {
-			pr_err("expose_page_table: No task with pid: %d\n",
-					pid);
-			kfree(fake_pgd_kern);
-			return -EINVAL;
-		}
 		pr_err("Found task_struct with pid: %d\n", task->pid);
 		mm = get_task_mm(task);
 		if (mm == NULL) {
 			pr_err("expose_page_table: mm is: %x\n",
 					mm);
-			kfree(fake_pgd_kern);
+			mmput(curr_mm);
 			return -EFAULT;
 		}
 	}
-	rcu_read_unlock();
 
-	if (pid != -1) {
-		down_read(&curr_mm->mmap_sem);
+	down_write(&curr_mm->mmap_sem);
+	if (!my_pid) {
+		down_read(&mm->mmap_sem);
 	}
-	down_read(&mm->mmap_sem);
 
 	pgd_base = mm->pgd;
 	vma = find_vma(curr_mm, addr);
 	if (vma == NULL) {
 		pr_err("expose_page_table: vma is NULL\n");
-		kfree(fake_pgd_kern);
-		up_read(&mm->mmap_sem);
-		mmput(mm);
-		if (pid != -1) {
-			up_read(&curr_mm->mmap_sem);
-			mmput(curr_mm);
+		up_write(&curr_mm->mmap_sem);
+		mmput(curr_mm);
+		if (!my_pid) {
+			up_read(&mm->mmap_sem);
+			mmput(mm);
 		}
 		return -EFAULT;
 	}
 
-	vma->vm_flags |= VM_READ|VM_DONTEXPAND;
+	vma->vm_flags |= VM_DONTEXPAND;
+
+	fake_pgd_kern = kcalloc(PTRS_PER_PGD,
+			sizeof(unsigned long), GFP_KERNEL);
+	if (fake_pgd_kern == NULL) {
+		up_write(&curr_mm->mmap_sem);
+		mmput(curr_mm);
+		if (!my_pid) {
+			up_read(&mm->mmap_sem);
+			mmput(mm);
+		}
+		return -ENOMEM;
+	}
 
 	for(pgd = pgd_base; pgd < pgd_base + PTRS_PER_PGD; pgd++, k++) {
 		if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd))) {
@@ -120,33 +136,46 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					pr_err(
 					"pte_count %d exceeds max limit\n",
 					pte_count);
-					up_read(&mm->mmap_sem);
-					mmput(mm);
-					if (pid != -1) {
-						up_read(&curr_mm->mmap_sem);
-						mmput(curr_mm);
+					up_write(&curr_mm->mmap_sem);
+					mmput(curr_mm);
+					if (!my_pid) {
+						up_read(&mm->mmap_sem);
+						mmput(mm);
 					}
 					kfree(fake_pgd_kern);
 					return -EFAULT;
 				}
 
-				pfn = __pfn_to_phys(__phys_to_pfn
-						(pmd_val(*pmd)));
+				//==============================
+				unsigned int *v, diff;
+				v = (unsigned int *)pgd;
+				diff = v[1] - v[0];
+				if (diff != 1024)
+					pr_err("Diff: %d\n", diff);
+				//==============================
+				//pfn = __pfn_to_phys(__phys_to_pfn
+				//		(pmd_val(*pmd)));
+				current_page = pmd_page(*pmd);
+				atomic_inc(&current_page->_count);
+				pfn = page_to_pfn(current_page);
 
 				ret = remap_pfn_range(vma,
 						(addr + (pte_count*PAGE_SIZE)),
 						pfn, PAGE_SIZE,
 						vma->vm_page_prot);
+
+				atomic_dec(&current_page->_count);
+
 				if (ret) {
 					pr_err("remap_pfn_range failed: ret: %d\n",
 							ret);
 					pr_err(" pfn=%d, i=%d, j=%d, k=%d\n",
 						pfn, i, j, k);
-					up_read(&mm->mmap_sem);
-					mmput(mm);
-					if (pid != -1) {
-						up_read(&curr_mm->mmap_sem);
-						mmput(curr_mm);
+					up_write(&curr_mm->mmap_sem);
+					mmput(curr_mm);
+					if (!my_pid) {
+						up_read(&mm->mmap_sem);
+						mmput(mm);
 					}
 					kfree(fake_pgd_kern);
 					return -EFAULT;
@@ -162,20 +191,24 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	}
 	pr_err("came 3.1 count = %d i = %d j = %d k = %d\n",
 			pte_count, i, j, k);
-	up_read(&mm->mmap_sem);
-	mmput(mm);
-	if (pid != -1) {
-		up_read(&curr_mm->mmap_sem);
-		mmput(curr_mm);
+	up_write(&curr_mm->mmap_sem);
+	mmput(curr_mm);
+	if (!my_pid) {
+		up_read(&mm->mmap_sem);
+		mmput(mm);
 	}
 
-	if (copy_to_user((void *)fake_pgd, fake_pgd_kern,
-				PAGE_SIZE*4)) {
+	pr_err("came here 8\n");
+	if (copy_to_user((unsigned long *)fake_pgd, fake_pgd_kern,
+				PTRS_PER_PGD*sizeof(unsigned long)))
+	{
 		pr_err("expose_page_table: copy_to_user");
 		pr_err(" failed to copy fake_pgd\n");
 		kfree(fake_pgd_kern);
 		return -EFAULT;
 	}
 
+	pr_err("came here 9\n");
+	kfree(fake_pgd_kern);
 	return 0;
 }

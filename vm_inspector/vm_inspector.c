@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	fake_pgd_base = (unsigned long *) malloc(MAX_PGD_ENTRIES*
+	fake_pgd_base = (unsigned long *) calloc(MAX_PGD_ENTRIES,
 			sizeof(unsigned long));
 
 	if (fake_pgd_base == NULL) {
