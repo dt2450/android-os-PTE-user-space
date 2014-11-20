@@ -12,7 +12,9 @@
 #define MAX_PTE_ENTRIES	(PAGE_SIZE / sizeof(unsigned long))
 #define VERBOSE_OPTION	"-v"
 
+#define UL(x) _AC(x, UL)
 #define PAGE_SHIFT              12
+#define TASK_SIZE               UL(3204448256)
 
 #define L_PTE_PRESENT           (_AT(unsigned long, 1) << 0)
 #define L_PTE_YOUNG             (_AT(unsigned long, 1) << 1)
@@ -30,5 +32,11 @@
 #define pte_young(pte)          (pte & L_PTE_YOUNG)
 #define pte_exec(pte)           (!(pte & L_PTE_XN))
 #define pte_file(pte)           ((pte & L_PTE_FILE))
+
+
+#define PTRS_PER_PTE		512
+#define PGDIR_SHIFT		21
+#define pgd_index(addr)         ((addr) >> PGDIR_SHIFT)
+#define pte_index(addr)         (((addr) >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))
 
 #endif /* __VM_INSPECTOR_H */
