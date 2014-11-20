@@ -1,0 +1,23 @@
+HW-5-README
+==================================================
+Devashi Tandan - dt2450
+Pratyush Parimal - pp2485
+Lawrence Candes - lfc2128
+==================================================
+
+Files Added:
+
+1. flo-kernel/mm/expose.c
+2. vm_inspector/vm_inspector.c
+3. vm_inspector/vm_inspector.h
+
+
+Files Modified:
+1. flo-kernel/arch/arm/include/asm/unistd.h
+2. flo-kernel/arch/arm/kernel/calls.S
+
+==================================================
+
+System Call details:
+1. System call no is 378
+2.  
