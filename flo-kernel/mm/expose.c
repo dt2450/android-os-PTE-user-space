@@ -95,6 +95,16 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 			mmput(mm);
 		}
 		return -EFAULT;
+	} else if (vma->vm_end - vma->vm_start < PAGE_SIZE * PTRS_PER_PGD *
+			PTRS_PER_PMD * PTRS_PER_PUD) {
+		pr_err("expose_page_table: vma size too small\n");
+		up_write(&curr_mm->mmap_sem);
+		mmput(curr_mm);
+		if (!my_pid) {
+			up_read(&mm->mmap_sem);
+			mmput(mm);
+		}
+		return -EFAULT;
 	}
 
 	vma->vm_flags |= VM_DONTEXPAND;
