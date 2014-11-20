@@ -50,8 +50,9 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	}
 	//TODO access_ok for addr
 	rcu_read_lock();
+	curr_mm = get_task_mm(current);
 	if (pid == -1)
-		mm = current->mm;
+		mm = get_task_mm(current);
 	else {
 		//task = pid_task(find_vpid(pid), PIDTYPE_PID);
 		task = find_process_by_pid(pid);
@@ -63,7 +64,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 			return -EINVAL;
 		}
 		pr_err("Found task_struct with pid: %d\n", task->pid);
-		mm = task->mm;
+		mm = get_task_mm(task);
 		if (mm == NULL) {
 			pr_err("expose_page_table: mm is: %x\n",
 					mm);
@@ -71,7 +72,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 			return -EFAULT;
 		}
 	}
-	curr_mm = current->mm;
 	rcu_read_unlock();
 
 	if (pid != -1) {
@@ -85,8 +85,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		pr_err("expose_page_table: vma is NULL\n");
 		kfree(fake_pgd_kern);
 		up_read(&mm->mmap_sem);
+		mmput(mm);
 		if (pid != -1) {
 			up_read(&curr_mm->mmap_sem);
+			mmput(curr_mm);
 		}
 		return -EFAULT;
 	}
@@ -119,8 +121,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					"pte_count %d exceeds max limit\n",
 					pte_count);
 					up_read(&mm->mmap_sem);
+					mmput(mm);
 					if (pid != -1) {
 						up_read(&curr_mm->mmap_sem);
+						mmput(curr_mm);
 					}
 					kfree(fake_pgd_kern);
 					return -EFAULT;
@@ -139,8 +143,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					pr_err(" pfn=%d, i=%d, j=%d, k=%d\n",
 						pfn, i, j, k);
 					up_read(&mm->mmap_sem);
+					mmput(mm);
 					if (pid != -1) {
 						up_read(&curr_mm->mmap_sem);
+						mmput(curr_mm);
 					}
 					kfree(fake_pgd_kern);
 					return -EFAULT;
@@ -157,8 +163,10 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	pr_err("came 3.1 count = %d i = %d j = %d k = %d\n",
 			pte_count, i, j, k);
 	up_read(&mm->mmap_sem);
+	mmput(mm);
 	if (pid != -1) {
 		up_read(&curr_mm->mmap_sem);
+		mmput(curr_mm);
 	}
 
 	if (copy_to_user((void *)fake_pgd, fake_pgd_kern,
