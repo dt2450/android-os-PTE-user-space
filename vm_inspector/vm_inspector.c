@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 	int ret;
 	int i, j;
 	int fd = -1;
-	int should_print = 0;
+	//int should_print = 0;
 	void *mmap_addr = NULL;
 	unsigned long *pte_base = NULL;
 	unsigned long page_phy_addr = NULL;
@@ -106,8 +106,7 @@ int main(int argc, char **argv)
 				/* zero out the offset bits 
 				 * to get the physical address
 				 */
-				should_print = (!pte_none(pte_entry)) || verbose;
-				if (should_print) {
+				if (!pte_none(pte_entry)) {
 					page_phy_addr =
 					(pte_entry >> PAGE_SHIFT) << PAGE_SHIFT;
 					printf("0x%lx 0x%lx 0x%lx %d %d %d %d %d\n"
