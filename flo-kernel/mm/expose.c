@@ -57,7 +57,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 	curr_mm = get_task_mm(current);
 	if (curr_mm == NULL) {
 		pr_err("expose_page_table: curr_mm is: %x\n",
-				curr_mm);
+				(unsigned int) curr_mm);
 		return -EFAULT;
 	}
 	if (my_pid)
@@ -66,7 +66,7 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 		mm = get_task_mm(task);
 		if (mm == NULL) {
 			pr_err("expose_page_table: mm is: %x\n",
-					mm);
+					(unsigned int) mm);
 			mmput(curr_mm);
 			return -EFAULT;
 		}
@@ -142,14 +142,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 					return -EFAULT;
 				}
 
-				unsigned int *v, diff;
-				v = (unsigned int *)pgd;
-				diff = v[1] - v[0];
-				if (diff != 1024) {
-					//pr_err("Diff: %d\n", diff);
-					continue;
-				}
-
 				current_page = pmd_page(*pmd);
 				atomic_inc(&current_page->_count);
 				pfn = page_to_pfn(current_page);
@@ -164,8 +156,6 @@ SYSCALL_DEFINE3(expose_page_table, pid_t, pid,
 				if (ret) {
 					pr_err("remap_pfn_range failed: ret: %d\n",
 							ret);
-					pr_err(" pfn=%d, i=%d, j=%d, k=%d\n",
-						pfn, i, j, k);
 					up_write(&curr_mm->mmap_sem);
 					mmput(curr_mm);
 					if (!my_pid) {
